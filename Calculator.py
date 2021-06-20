@@ -13,6 +13,7 @@ from tkinter.font import Font
 root = Tk()
 root.title("Calculator")
 root.geometry("320x450")
+root.resizable(False,False)
 root.configure(background="#fcf8e8")
 
 root.grid_columnconfigure(0,weight =1)
@@ -31,6 +32,13 @@ root.grid_rowconfigure(5,weight =1)
 equation = StringVar()
 result = StringVar()
 result.set("0")
+
+previous_key = None
+previous_value = None
+previous_operator = None
+
+operators_key = {"plus":"+","minus":"-","asterisk":"x","x":"x","slash":"÷","asciicircum":"^"}
+symbols_key = {"period":"."}
 #endregion
 
 #region - Styles
@@ -70,20 +78,107 @@ lbl_screen.grid(row=1,column=0,sticky="NEW",padx=10)
 #region - Functions
 
 def event_handler(key: str, isMouseClick: bool = False) -> None:
+    global previous_key, previous_value, previous_operator
+
     event_clicked_feedback(key) if not isMouseClick else None
+
+    screen_overflow()
+
+    if key == "Delete":
+        clear()
+
+    elif key == "BackSpace":
+        result.set(result.get()[0:len(result.get())-1]) if (len(result.get())>1) else clear()
+
     if key.isnumeric():
+        if len(result.get().replace(",","")) > 15:
+            return
         if result.get() == "0":
             result.set("")
         result.set(result.get()+key)
-    elif key == "Delete":
-        result.set("0")
-    elif key == "BackSpace":
-        result.set(result.get()[0:len(result.get())-1]) if (len(result.get())>1) else result.set("0")
+
     elif key in "Return,Equal":
-        pass
+        if previous_value is not None:
+            if previous_key in "Return,Equal":
+                # temp = previous_value
+                # previous_value = result.get()
+                # result.set(temp)
+                
+                # equation.set(previous_value+" "+operators_key[previous_operator]+" "+result.get()+" = ")
+                # solve(previous_operator)
+                return #set to return for now, will change the functionality later
+            else:
+                equation.set(previous_value+" "+operators_key[previous_operator]+" "+result.get()+" = ")
+                solve(previous_operator)
+            
+    elif key.lower() in operators_key :
+        if previous_key.lower() in operators_key:
+            previous_key = key
+            previous_operator = key
+            equation.set(equation.get().replace(equation.get()[-1],operators_key[previous_key]))
+            return
+        if previous_value is not None and previous_key.isnumeric():
+            solve(previous_operator)    
+        previous_value = result.get()
+        result.set("0")
+        lbl_screen.configure(font=font_screen,pady=0)
+        equation.set(previous_value+" "+operators_key[key])
+        previous_operator = key
+
+    elif key == "period":
+        if symbols_key[key] not in result.get():
+            result.set(result.get()+symbols_key[key])
+        else:
+            return
+        
+    previous_key = key 
+    
+def solve(operator: str) -> None:
+    global previous_value
+
+    result.set(result.get().replace(",",""))
+    previous_value = previous_value.replace(",","")
+
+    if operator == "plus":
+        result.set((float(previous_value) + float(result.get())))
+    elif operator == "minus":
+        result.set(float(previous_value) - float(result.get()))
+    elif operator.lower() in ["asterisk","x"]:
+        result.set(float(previous_value) * float(result.get()))
+    elif operator == "slash":
+        result.set(float(previous_value) / float(result.get()))
+    elif operator == "^" or operator == "asciicircum":
+        result.set(float(previous_value) ** float(result.get()))
+
+    format_result()
+
+def format_result() -> None:
+    if float(result.get())%1 == 0:
+        result.set(result.get().removesuffix(".0"))
+    # temporarily commented out, will work with this function later
+    # if (int(result.get()) > 999) or (int(result.get()) < 999):
+    #     for i in range(len(str(int(result.get())))-3,0,-3):
+    #         print("hello",i)
+    #         temp = list(result.get())
+    #         temp.insert(i,",")
+    #         result.set("".join(temp)) 
+    screen_overflow()
+
+def screen_overflow() -> None:
+    if len(result.get()) > 2:
+        lbl_screen.configure(font=font_screen_small)
+        lbl_screen.configure(pady=16)
+        # root.geometry("{}x450".format(root.winfo_width() + 20))
+
+def clear() -> None:
+    global previous_value
+
+    result.set("0")
+    equation.set("")
+    previous_value = None
+    lbl_screen.configure(font=font_screen,pady=0)
 
 def event_clicked_feedback(key: str) -> None:
-    print(key)
     def visual_feedback(button: Button) -> None:
         if key.lower() in "backspace,equal,return":
             button.configure(background = bg_btns_dark_clicked, relief = "sunken")
@@ -107,7 +202,7 @@ def event_clicked_feedback(key: str) -> None:
         visual_feedback(btn_clear)
     elif key.lower() in "return,equal":
         visual_feedback(btn_equals)
-    
+
 #endregion
 
 #region - Buttons
