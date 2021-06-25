@@ -1,11 +1,10 @@
 # A simple calculator created using python's tkinter module
 # @author Marco Visaya
-# @vesion 6/19/2021
+# @vesion 6/25/2021
 
 #region - Imports
 from tkinter import *
 from time import sleep
-from tkinter import font
 from tkinter.font import Font
 #endregion
 
@@ -36,6 +35,7 @@ result.set("0")
 previous_key = None
 previous_value = None
 previous_operator = None
+operand2 = None
 
 operators_key = {"plus":"+","minus":"-","asterisk":"x","x":"x","slash":"÷","asciicircum":"^"}
 symbols_key = {"period":"."}
@@ -57,7 +57,7 @@ bg_btns_dark_clicked = "#c3ccc2"
 fg_btns_dark = "#212430"
 fg_btns_light = "#f4fbe6"
 
-bg_active = "#e5e8e4"
+bg_active = "#f0f0f0"
 #endregion
 
 #region - Result Frame Configuration
@@ -78,17 +78,21 @@ lbl_screen.grid(row=1,column=0,sticky="NEW",padx=10)
 #region - Functions
 
 def event_handler(key: str, isMouseClick: bool = False) -> None:
-    global previous_key, previous_value, previous_operator
-
+    global previous_key, previous_value, previous_operator, operand2
     event_clicked_feedback(key) if not isMouseClick else None
 
     screen_overflow()
 
     if key == "Delete":
         clear()
+        return
 
-    elif key == "BackSpace":
-        result.set(result.get()[0:len(result.get())-1]) if (len(result.get())>1) else clear()
+    if key == "BackSpace":
+        if (len(result.get())>1) and result.get().isnumeric():
+            result.set(result.get()[0:len(result.get())-1])        
+        else:
+            result.set("0")
+        return
 
     if key.isnumeric():
         if len(result.get().replace(",","")) > 15:
@@ -96,17 +100,16 @@ def event_handler(key: str, isMouseClick: bool = False) -> None:
         if result.get() == "0":
             result.set("")
         result.set(result.get()+key)
+        format_result()
 
     elif key in "Return,Equal":
         if previous_value is not None:
             if previous_key in "Return,Equal":
-                # temp = previous_value
-                # previous_value = result.get()
-                # result.set(temp)
-                
-                # equation.set(previous_value+" "+operators_key[previous_operator]+" "+result.get()+" = ")
-                # solve(previous_operator)
-                return #set to return for now, will change the functionality later
+                previous_value = result.get()
+
+                equation.set(result.get()+" "+operators_key[previous_operator]+" "+operand2+" = ")
+                solve(previous_operator,operand2)
+                return
             else:
                 equation.set(previous_value+" "+operators_key[previous_operator]+" "+result.get()+" = ")
                 solve(previous_operator)
@@ -121,7 +124,7 @@ def event_handler(key: str, isMouseClick: bool = False) -> None:
             solve(previous_operator)    
         previous_value = result.get()
         result.set("0")
-        lbl_screen.configure(font=font_screen,pady=0)
+        screen_overflow()
         equation.set(previous_value+" "+operators_key[key])
         previous_operator = key
 
@@ -130,14 +133,24 @@ def event_handler(key: str, isMouseClick: bool = False) -> None:
             result.set(result.get()+symbols_key[key])
         else:
             return
+
+    elif key == "sign":
+        None if result.get()=="0" else result.set(float(result.get()) * -1), format_result()
+        
+    else:
+        print(key)
         
     previous_key = key 
     
-def solve(operator: str) -> None:
-    global previous_value
+def solve(operator: str, continuous:str = None) -> None:
+    global previous_value, operand2
 
     result.set(result.get().replace(",",""))
     previous_value = previous_value.replace(",","")
+    if continuous is not None:
+        result.set(continuous)
+
+    operand2 = result.get()
 
     if operator == "plus":
         result.set((float(previous_value) + float(result.get())))
@@ -153,30 +166,35 @@ def solve(operator: str) -> None:
     format_result()
 
 def format_result() -> None:
+    result.set(result.get().replace(",",""))
     if float(result.get())%1 == 0:
         result.set(result.get().removesuffix(".0"))
-    # temporarily commented out, will work with this function later
-    # if (int(result.get()) > 999) or (int(result.get()) < 999):
-    #     for i in range(len(str(int(result.get())))-3,0,-3):
-    #         print("hello",i)
-    #         temp = list(result.get())
-    #         temp.insert(i,",")
-    #         result.set("".join(temp)) 
+    if (float(result.get()) > 999) or (float(result.get()) < 999):
+        for i in range(len(str(int(result.get())))-3,0,-3):
+            temp = list(result.get())
+            temp.insert(i,",")
+            result.set("".join(temp)) 
     screen_overflow()
 
 def screen_overflow() -> None:
-    if len(result.get()) > 2:
+    if len(result.get()) > 9:
         lbl_screen.configure(font=font_screen_small)
-        lbl_screen.configure(pady=16)
+        lbl_screen.grid_configure(pady=(0,18))
+        lbl_equation.grid_configure(pady=(14,0))
         # root.geometry("{}x450".format(root.winfo_width() + 20))
+    else:
+        lbl_screen.configure(font=font_screen)
+        lbl_screen.grid_configure(pady=(0,0))
+        lbl_equation.grid_configure(pady=(0,0))
 
 def clear() -> None:
     global previous_value
-
     result.set("0")
     equation.set("")
     previous_value = None
-    lbl_screen.configure(font=font_screen,pady=0)
+
+    screen_overflow()
+
 
 def event_clicked_feedback(key: str) -> None:
     def visual_feedback(button: Button) -> None:
@@ -202,6 +220,14 @@ def event_clicked_feedback(key: str) -> None:
         visual_feedback(btn_clear)
     elif key.lower() in "return,equal":
         visual_feedback(btn_equals)
+    else:
+        visual_feedback(btn_plus) if key=="plus" else None
+        visual_feedback(btn_minus) if key=="minus" else None
+        visual_feedback(btn_multiply) if key=="asterisk" else None
+        visual_feedback(btn_divide) if key=="slash" else None
+        visual_feedback(btn_exponent) if key=="asciicircum" else None
+        visual_feedback(btn_decimal) if key=="period" else None
+        visual_feedback(btn_sign) if key=="sign" else None
 
 #endregion
 
@@ -221,8 +247,7 @@ btn_decimal = Button(root, text=".", borderwidth=0, bg=bg_btns_light, font=font_
 btn_sign = Button(root, text="+/-", borderwidth=0, bg=bg_btns_light, font=font_btns_symbols, foreground=fg_btns_dark)
 btn_exponent = Button(root, text="xʸ", borderwidth=0, bg=bg_btns_light,font=font_btns_symbols, foreground=fg_btns_dark)
 
-btn_backspace = Button(root, text="del", borderwidth=0, bg=bg_btns_dark, font=font_btns, foreground=fg_btns_light, 
-                command= lambda: event_handler("BackSpace",True), activebackground= bg_btns_dark_clicked, activeforeground=fg_btns_light)
+btn_backspace = Button(root, text="del", borderwidth=0, bg=bg_btns_dark, font=font_btns, foreground=fg_btns_light)
 btn_equals = Button(root, text="=", borderwidth=0, bg=bg_btns_dark, font=font_btns_symbols, foreground=fg_btns_light)
 
 #grid assignment
@@ -265,6 +290,19 @@ btns_num[6].configure(command = lambda: event_handler("6"))
 btns_num[7].configure(command = lambda: event_handler("7"))
 btns_num[8].configure(command = lambda: event_handler("8"))
 btns_num[9].configure(command = lambda: event_handler("9"))
+
+btn_backspace.configure(command=lambda: event_handler("BackSpace",True), activebackground= bg_btns_dark_clicked, activeforeground=fg_btns_light)
+btn_equals.configure(command=lambda: event_handler("Return",True), activebackground= bg_btns_dark_clicked, activeforeground=fg_btns_light)
+
+btn_plus.configure(command=lambda: event_handler("plus",True))
+btn_minus.configure(command=lambda: event_handler("minus",True))
+btn_multiply.configure(command=lambda: event_handler("asterisk",True))
+btn_divide.configure(command=lambda: event_handler("slash",True))
+btn_exponent.configure(command=lambda: event_handler("asciicircum",True))
+
+btn_clear.configure(command=lambda: event_handler("Delete",True))
+btn_decimal.configure(command=lambda: event_handler("period",True))
+btn_sign.configure(command=lambda: event_handler("sign", True))
 
 #endregion
 
